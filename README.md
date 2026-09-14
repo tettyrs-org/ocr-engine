@@ -1,42 +1,43 @@
 # ocr-engine
 
-Service OCR untuk dokumen perjalanan dinas: menerima gambar atau PDF, mengembalikan teks
-beserta koordinat dan tingkat keyakinan per kata.
+An OCR service for official travel documents: it accepts an image or a PDF and returns the text
+along with coordinates and a confidence score for every word.
 
-Service ini sengaja dibuat **tidak tahu konteks bisnis**. Ia tidak mengenal apa itu Surat Tugas,
-NIP, atau tanggal berangkat. Tugasnya satu: mengubah piksel menjadi teks yang dapat dipetakan
-oleh layanan lain. Dengan batas sesempit itu, mesin OCR di dalamnya dapat diganti tanpa
-menyentuh pemanggilnya.
+The service is deliberately **unaware of business context**. It does not know what an assignment
+letter, an employee ID, or a departure date is. It has one job: turn pixels into text that other
+services can map into fields. Keeping the boundary this narrow means the OCR engine inside can be
+replaced without touching its callers.
 
 ```
-berkas (JPG/PNG/PDF)
+file (JPG/PNG/PDF)
         |
         v
-  PDF punya text layer? --- ya ---> baca langsung (PyMuPDF), akurasi eksak, ~50 ms
+  PDF has a text layer? --- yes ---> read it directly (PyMuPDF), exact, ~50 ms
         |
-       tidak
+        no
         v
-  preprocessing (OpenCV: deskew, denoise, koreksi perspektif, upscale)
+  preprocessing (OpenCV: deskew, denoise, perspective correction, upscale)
         |
         v
-  Tesseract  --->  teks + bbox + confidence per kata
+  Tesseract  --->  text + bbox + confidence per word
 ```
 
-## Persyaratan
+## Requirements
 
-| Kebutuhan | Versi yang diuji |
+| Requirement | Tested version |
 |---|---|
 | Python | 3.9.13 |
 | Tesseract OCR | 5.4.0 |
-| Data bahasa Tesseract | `ind` (Indonesia) |
+| Tesseract language data | `ind` (Indonesian) |
 
-## 1. Pasang Tesseract
+## 1. Install Tesseract
 
-Tesseract adalah program terpisah, bukan pustaka Python. Ia harus terpasang lebih dulu.
+Tesseract is a separate program, not a Python library, and must be installed first.
 
-**Windows** — unduh installer dari [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki).
-Saat memasang, buka **Additional language data** lalu centang **Indonesian**. Tanpa itu,
-service gagal dengan pesan bahwa data bahasa `ind` tidak ditemukan.
+**Windows** — download the installer from
+[UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki). During installation, open
+**Additional language data** and tick **Indonesian**. Without it, the service fails with an error
+saying the `ind` language data cannot be found.
 
 **Linux (Debian/Ubuntu)**
 
@@ -51,17 +52,17 @@ sudo apt install tesseract-ocr tesseract-ocr-ind
 brew install tesseract tesseract-lang
 ```
 
-Pastikan hasilnya terbaca:
+Confirm the installation:
 
 ```bash
 tesseract --version
-tesseract --list-langs    # harus memuat "ind"
+tesseract --list-langs    # must include "ind"
 ```
 
-## 2. Pasang service
+## 2. Install the service
 
 ```bash
-git clone https://github.com/tettyrs/ocr-engine.git
+git clone https://github.com/tettyrs-org/ocr-engine.git
 cd ocr-engine
 
 python -m venv .venv
@@ -74,65 +75,65 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 3. Konfigurasi
+## 3. Configure
 
 ```bash
 cp .env.example .env      # Windows: copy .env.example .env
 ```
 
-`config.py` **tidak memiliki nilai default**. Setiap kunci di `.env.example` wajib ada, kecuali
-yang ditandai boleh kosong. Kunci yang hilang membuat service gagal saat diimpor dengan pesan
-yang tidak menyebut nama variabelnya — lihat baris pada traceback untuk menemukannya.
+`config.py` **has no default values**. Every key in `.env.example` is required unless it is marked
+as optional. A missing key makes the service fail at import time with an error that does not name
+the variable — use the line in the traceback to find it.
 
-Dua kunci yang biasanya perlu disesuaikan:
+Two keys usually need adjusting:
 
 ```ini
 TESSERACT_DATA_PREFIX=C:\Program Files\Tesseract-OCR\tessdata
 TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
-Keduanya boleh dikosongkan bila Tesseract sudah ada di `PATH` dan memakai lokasi bawaan.
+Both may be left empty when Tesseract is on `PATH` and uses its default locations.
 
-> **Jebakan path Windows.** Jangan mengapit path dengan kutip ganda.
-> `python-dotenv` memproses escape sequence di dalam kutip ganda, sehingga
-> `"C:\Tesseract-OCR\tessdata"` membuat `\t` menjadi TAB dan path-nya rusak tanpa pesan error.
-> Tulis tanpa kutip, atau pakai kutip tunggal.
+> **Windows path pitfall.** Do not wrap paths in double quotes.
+> `python-dotenv` processes escape sequences inside double quotes, so
+> `"C:\Tesseract-OCR\tessdata"` turns `\t` into a TAB and silently breaks the path.
+> Write paths unquoted, or use single quotes.
 
-Konfigurasi selengkapnya:
+Full configuration:
 
-| Kunci | Arti |
+| Key | Meaning |
 |---|---|
-| `OCR_HOST`, `OCR_PORT` | Alamat service. Bawaan `127.0.0.1:8082` |
-| `OCR_TEXT_LAYER_MIN_CHARS` | Ambang rata-rata karakter per halaman agar text layer PDF dianggap layak. Di bawahnya, dokumen dialihkan ke jalur OCR |
-| `PREPROCESS_DESKEW` | Meluruskan halaman yang miring |
-| `PREPROCESS_DENOISE` | Meredam bintik pada foto |
-| `PREPROCESS_PERSPECTIVE` | Meluruskan foto yang diambil menyudut |
-| `PREPROCESS_THRESHOLD` | Binarisasi adaptif. **Bawaan mati**: Tesseract membinarisasi sendiri, dan pada fixture uji langkah ini justru membuat huruf tebal berongga |
-| `PREPROCESS_MORPHOLOGY` | Perapian morfologis. Bawaan mati, hanya bermakna bila binarisasi menyala |
-| `PREPROCESS_UPSCALE_DPI` | Target resolusi sebelum OCR |
-| `PDF_RASTER_DPI` | Resolusi render halaman PDF tanpa text layer |
-| `PDF_MAX_PAGES` | Batas jumlah halaman PDF |
-| `OCR_ENGINE` | Nama mesin yang terdaftar di `OcrEngineFactory`. Saat ini `tesseract` |
-| `TESSERACT_LANG` | Bahasa Tesseract, `ind` |
+| `OCR_HOST`, `OCR_PORT` | Service address. Defaults in the example to `127.0.0.1:8082` |
+| `OCR_TEXT_LAYER_MIN_CHARS` | Minimum average characters per page for a PDF text layer to be accepted. Below it, the document is routed to OCR |
+| `PREPROCESS_DESKEW` | Straightens a rotated page |
+| `PREPROCESS_DENOISE` | Reduces speckle noise in photos |
+| `PREPROCESS_PERSPECTIVE` | Flattens a page photographed at an angle |
+| `PREPROCESS_THRESHOLD` | Adaptive binarization. **Off by default**: Tesseract binarizes on its own, and on the test fixtures this step hollowed out bold glyphs |
+| `PREPROCESS_MORPHOLOGY` | Morphological cleanup. Off by default; only meaningful when binarization is on |
+| `PREPROCESS_UPSCALE_DPI` | Target resolution before OCR |
+| `PDF_RASTER_DPI` | Render resolution for PDF pages without a text layer |
+| `PDF_MAX_PAGES` | Maximum number of PDF pages |
+| `OCR_ENGINE` | Name of an engine registered in `OcrEngineFactory`. Currently `tesseract` |
+| `TESSERACT_LANG` | Tesseract language, `ind` |
 
-Nilai boolean hanya mengenali `true` (besar-kecil bebas). Salah ketik seperti `ture` diam-diam
-dianggap `false`.
+Boolean values only recognize `true` (case-insensitive). A typo such as `ture` is silently treated
+as `false`.
 
-## 4. Jalankan
+## 4. Run
 
 ```bash
 python main.py
 ```
 
-atau
+or
 
 ```bash
 uvicorn main:app --host 127.0.0.1 --port 8082 --reload
 ```
 
-Dokumentasi interaktif tersedia di <http://127.0.0.1:8082/docs>.
+Interactive API documentation is available at <http://127.0.0.1:8082/docs>.
 
-## Endpoint
+## Endpoints
 
 ### `GET /health`
 
@@ -142,12 +143,12 @@ Dokumentasi interaktif tersedia di <http://127.0.0.1:8082/docs>.
 
 ### `POST /ocr`
 
-`multipart/form-data` dengan satu bagian `file` berisi JPG, PNG, atau PDF.
+`multipart/form-data` with a single `file` part containing a JPG, PNG, or PDF.
 
 ```bash
 curl -X POST http://127.0.0.1:8082/ocr \
   -H 'accept: application/json' \
-  -F 'file=@surat_tugas.jpg;type=image/jpeg'
+  -F 'file=@assignment_letter.jpg;type=image/jpeg'
 ```
 
 ```json
@@ -171,86 +172,90 @@ curl -X POST http://127.0.0.1:8082/ocr \
 }
 ```
 
-| Field | Arti |
+| Field | Meaning |
 |---|---|
-| `ocr_source` | `text_layer` bila teks diambil langsung dari PDF, `ocr` bila lewat pengenalan gambar |
-| `engine` | `null` pada jalur `text_layer` — tidak ada mesin OCR yang dijalankan |
-| `deskew_angle` | Derajat rotasi yang diterapkan preprocessing, berguna saat menyelidiki hasil buruk |
-| `bbox` | `[x0, y0, x1, y1]` dinormalisasi 0–1 terhadap ukuran halaman, bukan piksel |
-| `confidence` | 0–1 per kata. Selalu `1.0` pada jalur `text_layer` |
+| `ocr_source` | `text_layer` when text was read directly from the PDF, `ocr` when it went through image recognition |
+| `engine` | `null` on the `text_layer` path — no OCR engine was run |
+| `deskew_angle` | Rotation applied by preprocessing, in degrees. Useful when investigating poor results |
+| `bbox` | `[x0, y0, x1, y1]` normalized to 0–1 relative to the page size, not pixels |
+| `confidence` | 0–1 per word. Always `1.0` on the `text_layer` path |
 
-**Jangan memakai `confidence` sebagai penanda kata yang salah.** Pada pengujian, kata yang salah
-baca justru bernilai 0,90 sementara kata yang benar bernilai 0,48. Nilai ini mengukur keyakinan
-pengenalan bentuk huruf, bukan kebenaran isinya. Lihat [TESTING.md](TESTING.md) bagian 6.
+**Do not use `confidence` to detect misread words.** In testing, a misread word scored 0.90 while
+a correct one scored 0.48. The value measures how confidently glyph shapes were recognized, not
+whether the content is correct. See [TESTING.md](TESTING.md), section 6.
 
-### Kesalahan
+### Errors
 
-Bentuk respons: `{ "error": { "code": "...", "message": "..." } }`
+Response shape: `{ "error": { "code": "...", "message": "..." } }`
 
-| HTTP | `code` | Kapan |
+| HTTP | `code` | When |
 |---|---|---|
-| 400 | `UNSUPPORTED_MEDIA_TYPE` | Bukan JPG/PNG/PDF menurut magic bytes, bukan menurut ekstensi |
-| 400 | `INVALID_PDF` | Berkas mengaku PDF tetapi tidak dapat dibuka |
-| 400 | `PAGE_LIMIT_EXCEEDED` | PDF melebihi `PDF_MAX_PAGES` |
-| 413 | `FILE_TOO_LARGE` | Gambar > 10 MB atau PDF > 25 MB |
-| 503 | `OCR_ENGINE_UNAVAILABLE` | Tesseract tidak terpasang atau gagal dijalankan |
-| 500 | `INTERNAL_ERROR` | Kegagalan tak terduga |
+| 400 | `UNSUPPORTED_MEDIA_TYPE` | Not a JPG/PNG/PDF according to its magic bytes, regardless of file extension |
+| 400 | `INVALID_PDF` | The file claims to be a PDF but cannot be opened |
+| 400 | `PAGE_LIMIT_EXCEEDED` | The PDF exceeds `PDF_MAX_PAGES` |
+| 413 | `FILE_TOO_LARGE` | Image > 10 MB or PDF > 25 MB |
+| 503 | `OCR_ENGINE_UNAVAILABLE` | Tesseract is not installed or failed to start |
+| 500 | `INTERNAL_ERROR` | Unexpected failure |
 
-## Pengujian
+Error messages returned by the service are currently in Indonesian. Clients must branch on `code`,
+never on `message`.
+
+## Testing
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
 
-Uji yang membutuhkan Tesseract akan **dilewati otomatis** bila binernya tidak ada, sehingga suite
-tetap dapat dijalankan di mesin tanpa Tesseract.
+Tests that need Tesseract are **skipped automatically** when the binary is absent, so the suite
+still runs on machines without it.
 
 ```bash
-pytest -m "not slow"      # lewati OCR halaman penuh
-pytest -m ocr             # hanya yang membutuhkan Tesseract
+pytest -m "not slow"      # skip full-page OCR
+pytest -m ocr             # only tests that need Tesseract
 ```
 
-Rincian strategi, daftar kasus uji, dan hasil eksekusi terakhir ada di [TESTING.md](TESTING.md)
-beserta versi PDF-nya di [docs/laporan-pengujian-ocr-engine.pdf](docs/laporan-pengujian-ocr-engine.pdf).
+The test strategy, the full list of test cases, and the latest run results are in
+[TESTING.md](TESTING.md), with a PDF version at
+[docs/test-report-ocr-engine.pdf](docs/test-report-ocr-engine.pdf).
 
-## Struktur
+## Project structure
 
 ```
-main.py                 entry point FastAPI, /health
-config.py               pembacaan .env, tanpa nilai default
-routes/ocr.py           POST /ocr: deteksi tipe berkas, validasi, pemilihan jalur
-services/pdf_text.py    jalur text layer PDF (PyMuPDF)
-services/pdf_raster.py  render PDF menjadi gambar lalu OCR
-services/image_ocr.py   jalur gambar: preprocessing + pemanggilan mesin OCR
-services/preprocess.py  OpenCV: deskew, denoise, perspektif, upscale, binarisasi
-engines/base.py         antarmuka mesin OCR + factory
-engines/tesseract.py    implementasi Tesseract
-schemas/ocr.py          bentuk respons (Pydantic)
-error_handlers/         kesalahan domain dan handler-nya
-tests/                  pytest, termasuk fixture dokumen buatan
+main.py                 FastAPI entry point, /health
+config.py               reads .env, no default values
+routes/ocr.py           POST /ocr: file type detection, validation, path selection
+services/pdf_text.py    PDF text layer path (PyMuPDF)
+services/pdf_raster.py  renders PDF pages to images, then runs OCR
+services/image_ocr.py   image path: preprocessing + OCR engine call
+services/preprocess.py  OpenCV: deskew, denoise, perspective, upscale, binarization
+engines/base.py         OCR engine interface + factory
+engines/tesseract.py    Tesseract implementation
+schemas/ocr.py          response models (Pydantic)
+error_handlers/         domain errors and their handlers
+tests/                  pytest, including synthetic document fixtures
 ```
 
-Mesin OCR baru cukup mewarisi `OcrEngine` lalu mendaftar ke `OcrEngineFactory`; tidak ada bagian
-lain yang perlu berubah.
+A new OCR engine only needs to subclass `OcrEngine` and register with `OcrEngineFactory`; nothing
+else has to change.
 
-## Batasan yang diketahui
+## Known limitations
 
-Dicatat terbuka agar tidak dikira sudah tertangani:
+Listed openly so they are not mistaken for solved problems:
 
-- **Observability belum terpasang.** Pustakanya sudah ada di `requirements.txt`, tetapi logging
-  terstruktur, tracing OTLP, dan endpoint metrik belum diimplementasikan.
-- **Field `text` belum seragam antar jalur.** Jalur text layer mempertahankan baris, jalur OCR
-  menggabungkan kata dengan spasi. Pemanggil sebaiknya menyusun baris sendiri dari `bbox`.
-- **`width` dan `height` pada jalur gambar adalah ukuran setelah preprocessing**, bukan ukuran
-  berkas asli. Bila koreksi perspektif memotong gambar, `bbox` tidak lagi sejajar dengan foto
-  aslinya.
-- **Resolusi sumber gambar diasumsikan 72 DPI**, sehingga foto beresolusi tinggi ikut diperbesar
-  lebih jauh dari yang diperlukan.
-- **Batas jumlah halaman hanya diperiksa pada jalur raster**, belum pada jalur text layer.
-- **Akurasi belum diukur terhadap dokumen asli.** Seluruh fixture adalah dokumen buatan dengan
-  satu tata letak dan satu font.
+- **Observability is not wired up yet.** The libraries are already in `requirements.txt`, but
+  structured logging, OTLP tracing, and a metrics endpoint are not implemented.
+- **The `text` field is not consistent across paths.** The text layer path preserves line breaks;
+  the OCR path joins words with spaces. Callers should rebuild lines from `bbox`.
+- **`width` and `height` on the image path are the post-preprocessing dimensions**, not those of
+  the original file. If perspective correction crops the image, `bbox` no longer aligns with the
+  original photo.
+- **Image source resolution is assumed to be 72 DPI**, so high-resolution photos are upscaled
+  further than necessary.
+- **The page limit is only enforced on the raster path**, not on the text layer path.
+- **Accuracy has not been measured on real documents.** All fixtures are synthetic, with a single
+  layout and a single font.
 
-## Lisensi
+## License
 
-Belum ditentukan.
+Not yet determined.
