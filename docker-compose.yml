@@ -1,0 +1,36 @@
+# Standalone docker-compose untuk ocr-engine
+# Gunakan: docker-compose -f ocr-engine/docker-compose.yml up
+# Atau dari root: docker-compose -f ocr-engine/docker-compose.yml up
+
+version: '3.8'
+
+services:
+  ocr-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ocr-engine-standalone
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL}
+      - TESSERACT_PATH=/usr/bin/tesseract
+      - OCR_LANGUAGE=${OCR_LANGUAGE}
+      - OCR_TIMEOUT=${OCR_TIMEOUT}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - ocr-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  ocr-network:
+    driver: bridge
