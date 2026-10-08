@@ -200,6 +200,53 @@ Response shape: `{ "error": { "code": "...", "message": "..." } }`
 Error messages returned by the service are currently in Indonesian. Clients must branch on `code`,
 never on `message`.
 
+## Docker Deployment
+
+### Running in Docker
+
+The service is containerized and can be run as part of the full OCR stack:
+
+```bash
+# From project root, start complete stack
+cd /path/to/Projects/OCR
+docker-compose --env-file .env up -d ocr-engine
+
+# Or build and run standalone
+docker build -t ocr-engine:latest ./ocr-engine
+docker run -p 8000:8000 \
+  -e OCR_HOST=0.0.0.0 \
+  -e OCR_PORT=8000 \
+  -e TESSERACT_LANG=ind+eng \
+  ocr-engine:latest
+```
+
+### Accessing the Service
+
+Once running:
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Interactive API documentation
+open http://localhost:8000/docs
+
+# Test OCR endpoint
+curl -X POST http://localhost:8000/ocr \
+  -H 'accept: application/json' \
+  -F 'file=@test-document.jpg;type=image/jpeg'
+```
+
+### Docker Compose Integration
+
+When using docker-compose, the service is automatically configured:
+
+```bash
+# The service is accessible at http://ocr-engine:8000 from other containers
+# For example, from ocr-api container:
+curl http://ocr-engine:8000/health
+```
+
 ## Testing
 
 ```bash

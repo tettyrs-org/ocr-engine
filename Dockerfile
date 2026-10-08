@@ -24,7 +24,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
   tesseract-ocr \
   tesseract-ocr-ind \
-  libtesseract1 \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy Python dependencies from builder
@@ -42,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Run application (assumes FastAPI with uvicorn)
 ENTRYPOINT ["python", "-m", "uvicorn"]
-CMD ["app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["main:app", "--host", "0.0.0.0", "--port", "8000"]
