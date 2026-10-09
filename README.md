@@ -182,7 +182,7 @@ curl -X POST http://127.0.0.1:8082/ocr \
 
 **Do not use `confidence` to detect misread words.** In testing, a misread word scored 0.90 while
 a correct one scored 0.48. The value measures how confidently glyph shapes were recognized, not
-whether the content is correct. See [TESTING.md](TESTING.md), section 6.
+whether the content is correct. See the [test report](docs/test-report-ocr-engine.pdf).
 
 ### Errors
 
@@ -262,9 +262,8 @@ pytest -m "not slow"      # skip full-page OCR
 pytest -m ocr             # only tests that need Tesseract
 ```
 
-The test strategy, the full list of test cases, and the latest run results are in
-[TESTING.md](TESTING.md), with a PDF version at
-[docs/test-report-ocr-engine.pdf](docs/test-report-ocr-engine.pdf).
+The test strategy, the full list of test cases, and the latest run results are in the
+[test report](docs/test-report-ocr-engine.pdf).
 
 ## Project structure
 
