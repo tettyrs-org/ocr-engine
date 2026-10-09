@@ -1,11 +1,11 @@
 # ocr-engine
 
-An OCR service for official travel documents: it accepts an image or a PDF and returns the text
-along with coordinates and a confidence score for every word.
+A general-purpose OCR service: it accepts an image or a PDF and returns the recognized text along
+with coordinates and a confidence score for every word.
 
-The service is deliberately **unaware of business context**. It does not know what an assignment
-letter, an employee ID, or a departure date is. It has one job: turn pixels into text that other
-services can map into fields. Keeping the boundary this narrow means the OCR engine inside can be
+The service is deliberately **unaware of the document's meaning**. It does not interpret the
+content, know the document type, or map text to fields. It has one job: turn pixels into text that
+other services can use. Keeping the boundary this narrow means the OCR engine inside can be
 replaced without touching its callers.
 
 ```
