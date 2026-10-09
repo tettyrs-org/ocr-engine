@@ -302,6 +302,11 @@ Listed openly so they are not mistaken for solved problems:
 - **Accuracy has not been measured on real documents.** All fixtures are synthetic, with a single
   layout and a single font.
 
+## Related Projects
+
+- [ocr-api](https://github.com/tettyrs-org/ocr-api) - Public API and document lifecycle
+- [ms-ocr](https://github.com/tettyrs-org/ms-ocr) - Java correction and normalization service
+
 ## License
 
 Not yet determined.
