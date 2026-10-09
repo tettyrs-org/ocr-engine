@@ -88,8 +88,8 @@ the variable — use the line in the traceback to find it.
 Two keys usually need adjusting:
 
 ```ini
-TESSERACT_DATA_PREFIX=<path-ke-folder-tessdata>
-TESSERACT_CMD=<path-ke-tesseract-binary>
+TESSERACT_DATA_PREFIX=<path-to-tessdata-folder>
+TESSERACT_CMD=<path-to-tesseract-binary>
 ```
 
 Both may be left empty when Tesseract is on `PATH` and uses its default locations.
